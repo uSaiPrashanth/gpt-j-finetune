@@ -1,21 +1,20 @@
-from unittest.util import _MAX_LENGTH
-from transformers import AutoModelForCausalLM,AutoTokenizer
+from transformers import AutoModelForCausalLM,AutoTokenizer, get_cosine_schedule_with_warmup
 from transformers import Trainer,TrainingArguments
 import torch
 import lm_dataformat
-import os
+import wandb
 
 class LMDataset(torch.utils.data.IterableDataset):
 
     def __init__(self,path,max_length=2048):
         self.path = path
-        self.tokenizer = tokenizer = AutoTokenizer.from_pretrained('EleutherAI/gpt-j-6B')
+        self.tokenizer = AutoTokenizer.from_pretrained('EleutherAI/gpt-j-6B')
         self.max_length = max_length
 
     def parse(self,tokens):
         return {
-            'input_ids':torch.tensor(tokens[:self.max_length]),
-            'labels':torch.tensor(tokens[1:])
+            'input_ids':torch.tensor(tokens),
+            'labels':torch.tensor(tokens)
         }
 
     def __iter__(self):
@@ -35,8 +34,8 @@ class LMDataset(torch.utils.data.IterableDataset):
                 ).input_ids[0].tolist()
             )
             tokens.append(self.tokenizer.eos_token_id)
-            if(len(tokens) > (self.max_length+1)):
-                yield self.parse(tokens[:self.max_length+1])
+            if(len(tokens) > (self.max_length)):
+                yield self.parse(tokens[:self.max_length])
 
                 tokens = tokens[self.max_length:]
     
@@ -59,36 +58,30 @@ if __name__ == '__main__':
         6:list(range(20,24)),
         7:list(range(24,28))
     })
-    os.environ['WANDB_DISABLED'] = "true"
-    # tokenizer = AutoTokenizer.from_pretrained('EleutherAI/gpt-j-6B')
-
-    # text = "EleutherAI is: "
-    # tokens = tokenizer(text,return_tensors='pt')
-    # generated_output = model.generate(temprature=0.4)
-
-    # gen_text = tokenizer.batch_decode(generated_output)[0]
-    # print(gen_text)
-
-    # dataloader = torch.utils.data.DataLoader(
-    #     LMDataset('/mnt/ssd-1/P3/P3_text/train'),
-    #     batch_size=16
-    # )
-
-    # for i in tqdm(iter(dataloader)):
-    #     pass
-
+    
+    
     train_ds = LMDataset('/mnt/ssd-1/P3/P3_text/train')
     test_ds = LMDataset('/mnt/ssd-1/P3/P3_text/test')
     validation_ds = LMDataset('/mnt/ssd-1/P3/P3_text/validation')
+
+    wandb.init(entity='eleutherai',project='gpt-j-finetune',group='P3')
 
     training_args = TrainingArguments(
         output_dir = './P3_6B',
         overwrite_output_dir=True,
         per_device_train_batch_size=3,
         do_train=True,
-        max_steps=30000,
+        warmup_steps=300,
+        max_steps=3300,
         num_train_epochs=1,
-
+        logging_steps=1,
+        save_steps=100,
+        eval_steps=300,
+        evaluation_strategy='steps',
+        gradient_accumulation_steps = 16,
+        learning_rate=1.2e-5,
+        lr_scheduler_type = 'cosine',
+        report_to='wandb'
     )
 
     trainer = Trainer(
