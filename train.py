@@ -6,10 +6,12 @@ import wandb
 
 class LMDataset(torch.utils.data.IterableDataset):
 
-    def __init__(self,path,max_length=2048):
+    def __init__(self,path,max_length=2048,training=True,evaluation_steps=304):
         self.path = path
         self.tokenizer = AutoTokenizer.from_pretrained('EleutherAI/gpt-j-6B')
         self.max_length = max_length
+        self.training = training
+        self.evaluation_steps = evaluation_steps
 
     def parse(self,tokens):
         return {
@@ -26,6 +28,7 @@ class LMDataset(torch.utils.data.IterableDataset):
         
         reader = lm_dataformat.Reader(self.path)
         tokens = []
+        step = 0
         for text in reader.stream_data():
             tokens.extend(
                 self.tokenizer(
@@ -38,6 +41,9 @@ class LMDataset(torch.utils.data.IterableDataset):
                 yield self.parse(tokens[:self.max_length])
 
                 tokens = tokens[self.max_length:]
+                step+=1
+                if(not self.training and step > self.evaluation_steps):
+                    return
     
 
             
@@ -47,7 +53,7 @@ class LMDataset(torch.utils.data.IterableDataset):
 
 
 if __name__ == '__main__':
-    model = AutoModelForCausalLM.from_pretrained('EleutherAI/gpt-j-6B')
+    model = AutoModelForCausalLM.from_pretrained('./P3_6B/checkpoint-100')
     model.parallelize({
         0:list(range(3)),
         1:list(range(3,6)),
@@ -61,22 +67,23 @@ if __name__ == '__main__':
     
     
     train_ds = LMDataset('/mnt/ssd-1/P3/P3_text/train')
-    test_ds = LMDataset('/mnt/ssd-1/P3/P3_text/test')
-    validation_ds = LMDataset('/mnt/ssd-1/P3/P3_text/validation')
+    test_ds = LMDataset('/mnt/ssd-1/P3/P3_text/test',training=False)
+    validation_ds = LMDataset('/mnt/ssd-1/P3/P3_text/validation',training=False)
 
     wandb.init(entity='eleutherai',project='gpt-j-finetune',group='P3')
 
     training_args = TrainingArguments(
-        output_dir = './P3_6B',
+        output_dir = '/mnt/ssd-1/P3_6B/',
         overwrite_output_dir=True,
         per_device_train_batch_size=3,
+        per_device_eval_batch_size=16,
         do_train=True,
         warmup_steps=300,
         max_steps=3300,
         num_train_epochs=1,
         logging_steps=1,
         save_steps=100,
-        eval_steps=300,
+        eval_steps=100,
         evaluation_strategy='steps',
         gradient_accumulation_steps = 16,
         learning_rate=1.2e-5,
@@ -90,5 +97,5 @@ if __name__ == '__main__':
         train_dataset = train_ds,
         eval_dataset = test_ds,
     )
-
     trainer.train()
+    trainer.evaluate()
