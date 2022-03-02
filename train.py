@@ -53,7 +53,7 @@ class LMDataset(torch.utils.data.IterableDataset):
 
 
 if __name__ == '__main__':
-    model = AutoModelForCausalLM.from_pretrained('./P3_6B/checkpoint-100')
+    model = AutoModelForCausalLM.from_pretrained('EleutherAI/gpt-j-6B')
     model.parallelize({
         0:list(range(3)),
         1:list(range(3,6)),
@@ -76,10 +76,9 @@ if __name__ == '__main__':
         output_dir = '/mnt/ssd-1/P3_6B/',
         overwrite_output_dir=True,
         per_device_train_batch_size=3,
-        per_device_eval_batch_size=16,
+        per_device_eval_batch_size=8,
         do_train=True,
-        warmup_steps=300,
-        max_steps=3300,
+        max_steps=5000,
         num_train_epochs=1,
         logging_steps=1,
         save_steps=100,
