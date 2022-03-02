@@ -1,6 +1,6 @@
-nnodes=1
-node_rank=$1
-master_addr=$2
+nnodes=$1
+node_rank=$2
+master_addr=$3
 
 echo $node_rank
 cd /home/mchorse/gpt-j-finetune
