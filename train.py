@@ -3,6 +3,7 @@ from transformers import Trainer,TrainingArguments
 import torch
 import lm_dataformat
 import wandb
+import os
 
 class LMDataset(torch.utils.data.IterableDataset):
 
@@ -48,15 +49,27 @@ class LMDataset(torch.utils.data.IterableDataset):
 
             
 
+class GPTJTrainer(Trainer):
+    def _load_state_dict_in_model(self,state_dict):
+        '''Model is loaded beforehand to avoid OOM. Do nothing'''
+        return
+    
+    def _load_optimizer_and_scheduler(self, checkpoint):
+        """If optimizer and scheduler states exist, load them."""
+        self.optimizer.load_state_dict(
+            torch.load(os.path.join(checkpoint,"optimizer.pt"),map_location="cpu") # Loading on cuda causes OOM
+        )
+        
+        self.lr_scheduler.load_state_dict(torch.load(os.path.join(checkpoint, "scheduler.pt")))
 
 
 
 
 if __name__ == '__main__':
-    model = AutoModelForCausalLM.from_pretrained('EleutherAI/gpt-j-6B')
+    model = AutoModelForCausalLM.from_pretrained('/mnt/ssd-1/P3_6B/checkpoint-1000')
     model.parallelize({
-        0:list(range(3)),
-        1:list(range(3,6)),
+        0:list(range(2)),
+        1:list(range(2,6)),
         2:list(range(6,9)),
         3:list(range(9,13)),
         4:list(range(13,17)),
@@ -69,8 +82,7 @@ if __name__ == '__main__':
     train_ds = LMDataset('/mnt/ssd-1/P3/P3_text/train')
     test_ds = LMDataset('/mnt/ssd-1/P3/P3_text/test',training=False)
     validation_ds = LMDataset('/mnt/ssd-1/P3/P3_text/validation',training=False)
-
-    wandb.init(entity='eleutherai',project='gpt-j-finetune',group='P3')
+    wandb.init(entity='eleutherai',project='gpt-j-finetune',group='P3',reinit=True)
 
     training_args = TrainingArguments(
         output_dir = '/mnt/ssd-1/P3_6B/',
@@ -81,20 +93,20 @@ if __name__ == '__main__':
         max_steps=5000,
         num_train_epochs=1,
         logging_steps=1,
-        save_steps=100,
+        save_steps=500,
         eval_steps=100,
         evaluation_strategy='steps',
         gradient_accumulation_steps = 16,
         learning_rate=1.2e-5,
         lr_scheduler_type = 'cosine',
-        report_to='wandb'
+        report_to='wandb',
     )
 
-    trainer = Trainer(
+    trainer = GPTJTrainer(
         model = model,
         args = training_args,
         train_dataset = train_ds,
         eval_dataset = test_ds,
     )
-    trainer.train()
+    trainer.train("/mnt/ssd-1/P3_6B/checkpoint-1000")
     trainer.evaluate()
