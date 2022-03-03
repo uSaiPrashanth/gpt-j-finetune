@@ -117,6 +117,10 @@ class GPTJTrainer(Trainer):
     
     def _load_optimizer_and_scheduler(self, checkpoint):
         """If optimizer and scheduler states exist, load them."""
+        
+        if(checkpoint is None):
+            return
+
         self.optimizer.load_state_dict(
             torch.load(os.path.join(checkpoint,"optimizer.pt"),map_location="cpu") # Loading on cuda causes OOM
         )
