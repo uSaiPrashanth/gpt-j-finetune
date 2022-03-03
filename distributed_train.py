@@ -141,8 +141,7 @@ def train(args):
     train_ds = LMDataset('/mnt/ssd-1/P3/P3_text/train')
     test_ds = LMDataset('/mnt/ssd-1/P3/P3_text/test',training=False)
     validation_ds = LMDataset('/mnt/ssd-1/P3/P3_text/validation',training=False)
-    os.environ['WANDB_DISABLED'] = "true"
-    # wandb.init(entity='eleutherai',project='gpt-j-finetune',group='P3')
+    wandb.init(entity='eleutherai',project='gpt-j-finetune',group='P3_distributed_test')
 
     training_args = GPTJTrainingArguments(
         output_dir = './P3_6B/',
@@ -150,7 +149,7 @@ def train(args):
         per_device_train_batch_size=3,
         per_device_eval_batch_size=8,
         do_train=True,
-        max_steps=5000,
+        max_steps=10000,
         num_train_epochs=1,
         logging_steps=1,
         save_steps=500,
@@ -160,7 +159,7 @@ def train(args):
         learning_rate=1.2e-5,
         lr_scheduler_type = 'cosine',
         local_rank=args.rank,
-        # report_to='wandb'
+        report_to='wandb'
     )
 
     trainer = GPTJTrainer(
