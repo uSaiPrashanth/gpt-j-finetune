@@ -9,6 +9,8 @@ from argparse import ArgumentParser
 from torch.nn.parallel import DistributedDataParallel as DDP
 from transformers.file_utils import cached_property,torch_required
 
+CHECKPOINT = 1000
+
 class LMDataset(torch.utils.data.IterableDataset):
 
     def __init__(self,path,max_length=2048,training=True,evaluation_steps=304):
@@ -53,7 +55,7 @@ def attr(name):
     return getattr(self.module,name)
 
 def model_init():
-    model = AutoModelForCausalLM.from_pretrained('EleutherAI/gpt-j-6B')
+    model = AutoModelForCausalLM.from_pretrained(f'/mnt/ssd-1/P3_6B/checkpoint-{CHECKPOINT}')
     model.parallelize({
         0:list(range(2)),
         1:list(range(2,5)),
@@ -155,7 +157,7 @@ def train(args):
         save_steps=500,
         eval_steps=100,
         evaluation_strategy='steps',
-        gradient_accumulation_steps = 16,
+        gradient_accumulation_steps = 16//args.nnodes,
         learning_rate=1.2e-5,
         lr_scheduler_type = 'cosine',
         local_rank=args.rank,
@@ -168,7 +170,7 @@ def train(args):
         train_dataset = train_ds,
         eval_dataset = test_ds,
     )
-    trainer.train()
+    trainer.train(f'/mnt/ssd-1/P3_6B/checkpoint-{CHECKPOINT}')
     trainer.evaluate()
     dist.destroy_process_group()
 
