@@ -96,7 +96,7 @@ class GPTJTrainer(Trainer):
             labels = inputs.pop("labels")
         else:
             labels = None
-        print(os.environ['CUDA_VISIBLE_DEVICES'])
+        print(inputs['input_ids'])
         outputs = model.module.forward(**inputs)
         # Save past state if it exists
         # TODO: this needs to be fixed and made cleaner later.
