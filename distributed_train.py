@@ -20,22 +20,16 @@ class LMDataset(torch.utils.data.IterableDataset):
         self.training = training
         self.evaluation_steps = evaluation_steps
 
-    def parse(self,tokens):
-        return {
-            'input_ids':torch.tensor(tokens),
-            'labels':torch.tensor(tokens)
-        }
+        self.iterator = iter(self.iterate())
 
-    def __iter__(self):
-        workers = torch.utils.data.get_worker_info()
-        if(workers):
-            workers = workers.num_workers
-        else:
-            workers = 1
-        
+    def iterate(self):
+        """Iterator wrapper function
+
+        Used in combination with `__iter__` continue iteration over subsequent text records on multiple calls
+        """
+
         reader = lm_dataformat.Reader(self.path)
         tokens = []
-        step = 0
         for text in reader.stream_data():
             tokens.extend(
                 self.tokenizer(
@@ -48,9 +42,27 @@ class LMDataset(torch.utils.data.IterableDataset):
                 yield self.parse(tokens[:self.max_length])
 
                 tokens = tokens[self.max_length:]
-                step+=1
-                if(not self.training and step > self.evaluation_steps):
-                    return
+                
+
+    def parse(self,tokens):
+        return {
+            'input_ids':torch.tensor(tokens),
+            'labels':torch.tensor(tokens)
+        }
+
+    def __iter__(self):
+        if(self.training):
+            yield from self.iterator
+        
+        else:
+            for i in range(self.evaluation_steps):
+                try:
+                    yield next(self.iterator)
+                except StopIteration:
+                    self.iterator = iter(self.iterate())
+                    yield next(self.iterator)
+        
+        
 def attr(name):
     return getattr(self.module,name)
 
@@ -130,7 +142,7 @@ class GPTJTrainer(Trainer):
 
 
 def train(args):
-
+    os.environ['WANDB_MODE'] = 'offline'
     dist.init_process_group(
         backend='nccl',
         init_method='env://',
@@ -146,10 +158,10 @@ def train(args):
     training_args = GPTJTrainingArguments(
         output_dir = './P3_6B/',
         overwrite_output_dir=True,
-        per_device_train_batch_size=3,
+        per_device_train_batch_size=4,
         per_device_eval_batch_size=8,
         do_train=True,
-        max_steps=10000,
+        max_steps=5000,
         num_train_epochs=1,
         logging_steps=1,
         save_steps=500,
@@ -169,7 +181,6 @@ def train(args):
         eval_dataset = test_ds,
     )
     trainer.train(f'/mnt/ssd-1/P3_6B/checkpoint-{CHECKPOINT}')
-    trainer.evaluate()
     dist.destroy_process_group()
 
 if __name__ == '__main__':
