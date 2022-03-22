@@ -142,7 +142,6 @@ class GPTJTrainer(Trainer):
 
 
 def train(args):
-    os.environ['WANDB_MODE'] = 'offline'
     dist.init_process_group(
         backend='nccl',
         init_method='env://',
