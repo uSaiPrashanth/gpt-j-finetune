@@ -182,8 +182,8 @@ def train(args):
         learning_rate=1.2e-5,
         lr_scheduler_type = 'cosine',
         local_rank=args.rank,
-        report_to='wandb'
-        run_name='pod-' + str(self.rank)
+        report_to='wandb',
+        run_name='pod-' + str(args.rank)
     )
 
     trainer = GPTJTrainer(
