@@ -22,6 +22,18 @@ class LMDataset(torch.utils.data.IterableDataset):
 
         self.iterator = iter(self.iterate())
 
+    def __len__(self):
+        """Returns length of P3 dataset
+
+        > Length of train dataset is infinity
+        > Length of test dataset is `evaluation_steps`
+        """
+        if(self.training):
+            return 999999999999 # Batch size is irrelavant
+        
+        else:
+            return self.evaluation_steps
+    
     def iterate(self):
         """Iterator wrapper function
 
@@ -152,7 +164,7 @@ def train(args):
     train_ds = LMDataset('/mnt/ssd-1/P3/P3_text/train')
     test_ds = LMDataset('/mnt/ssd-1/P3/P3_text/test',training=False)
     validation_ds = LMDataset('/mnt/ssd-1/P3/P3_text/validation',training=False)
-    wandb.init(entity='eleutherai',project='gpt-j-finetune',group='P3_distributed_test')
+    wandb.init(entity='eleutherai',project='gpt-j-finetune',group='P3_distributed')
 
     training_args = GPTJTrainingArguments(
         output_dir = './P3_6B/',
@@ -171,6 +183,7 @@ def train(args):
         lr_scheduler_type = 'cosine',
         local_rank=args.rank,
         report_to='wandb'
+        run_name='pod-' + str(self.rank)
     )
 
     trainer = GPTJTrainer(
