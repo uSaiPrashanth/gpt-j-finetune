@@ -164,7 +164,12 @@ def train(args):
     train_ds = LMDataset('/mnt/ssd-1/P3/P3_text/train')
     test_ds = LMDataset('/mnt/ssd-1/P3/P3_text/test',training=False)
     validation_ds = LMDataset('/mnt/ssd-1/P3/P3_text/validation',training=False)
-    wandb.init(entity='eleutherai',project='gpt-j-finetune',group='P3_distributed')
+    wandb.init(
+        entity='eleutherai',
+        project='gpt-j-finetune',
+        group='P3_distributed',
+        name='pod-' + str(args.rank)
+    )
 
     training_args = GPTJTrainingArguments(
         output_dir = './P3_6B/',
@@ -182,8 +187,7 @@ def train(args):
         learning_rate=1.2e-5,
         lr_scheduler_type = 'cosine',
         local_rank=args.rank,
-        report_to='wandb',
-        run_name='pod-' + str(args.rank)
+        report_to='wandb'
     )
 
     trainer = GPTJTrainer(
